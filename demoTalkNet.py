@@ -302,11 +302,11 @@ def main(s, DET, video_path, return_visualization = False):
 	t = time.time()
 	# If duration did not set, extract the whole video, otherwise extract the video from 'args.start' to 'args.start + args.duration'
 	if duration == 0:
-		command = ("ffmpeg -y -i %s -qscale:v 2 -threads %d -async 1 -r 25 %s -loglevel panic" % \
-			(video_path, data_loader_thread, videoFilePath))
+		command = ("ffmpeg -y -i \"%s\" -qscale:v 2 -threads %d -async 1 -r 25 %s -loglevel panic" % \
+			(video_path.replace('"', '\\"'), data_loader_thread, videoFilePath))
 	else:
-		command = ("ffmpeg -y -i %s -qscale:v 2 -threads %d -ss %.3f -to %.3f -async 1 -r 25 %s -loglevel panic" % \
-			(video_path, data_loader_thread, start, start + duration, videoFilePath))
+		command = ("ffmpeg -y -i \"%s\" -qscale:v 2 -threads %d -ss %.3f -to %.3f -async 1 -r 25 %s -loglevel panic" % \
+			(video_path.replace('"', '\\"'), data_loader_thread, start, start + duration, videoFilePath))
 	subprocess.call(command, shell=True, stdout=None)
 	print("Video extracted in %.3f seconds."%(time.time() - t))
 	# sys.stderr.write(time.strftime("%Y-%m-%d %H:%M:%S") + " Extract the video and save in %s \r\n" %(videoFilePath))
