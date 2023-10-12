@@ -1,13 +1,11 @@
 import sieve
 
-from typing import List, Optional
-from pydantic import BaseModel
-
 metadata = sieve.Metadata(
-    description="An active speaker detection model to detect 'whether the face in the screen is speaking or not?'.",
+    description="An active speaker detection model to detect which people are speaking in a video.",
     image=sieve.Image(
         url="https://d3i71xaburhd42.cloudfront.net/a832f8978c55d6b127b70e1941604bfd3d1a06e6/2-Figure1-1.png"
     ),
+    code_url="https://github.com/sieve-community/TalkNet-ASD",
     tags=["Video"],
     readme=open("README.md", "r").read()
 )
