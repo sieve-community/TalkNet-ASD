@@ -297,6 +297,13 @@ def main(s, DET, video_path, return_visualization = False):
 	os.makedirs(pyworkPath, exist_ok = True) # Save the results in this process by the pckl method
 	os.makedirs(pycropPath, exist_ok = True) # Save the detected face clips (audio+video) in this process
 
+	video_cv2 = cv2.VideoCapture(video_path)
+	video_fps = video_cv2.get(cv2.CAP_PROP_FPS)
+	video_cv2.release()
+	if video_fps == 0 or math.isnan(video_fps):
+		video_fps = 25
+	video_fps = int(video_fps)
+
 	# Extract video
 	print("Extracting video...")
 	t = time.time()
@@ -389,6 +396,20 @@ def main(s, DET, video_path, return_visualization = False):
 			y2 = int(track['proc_track']['y'][fidx] + track['proc_track']['s'][fidx] / 2)
 			faces[frame]['faces'].append({'track_id': tidx, 'raw_score': float(s), 'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'speaking': bool(s >= 0)})
 
+	video_length_seconds = len(faces) / 25
+	target_num_frames = video_length_seconds * video_fps
+
+	ratio = video_fps / 25
+	interpolated_faces = []
+	if ratio != 1:
+		interpolated_faces = [{'frame_number': i, 'faces': []} for i in range(int(target_num_frames))]
+		for i in range(int(target_num_frames)):
+			interpolated_faces[i]['faces'] = faces[int(i / ratio)]['faces']
+	else:
+		interpolated_faces = faces
+
+
+	
 	print("Active speakers detected in %.3f seconds."%(time.time() - t))
 	if return_visualization:
 		print("Visualizing the result...")
@@ -397,7 +418,7 @@ def main(s, DET, video_path, return_visualization = False):
 		print("Result visualized in %.3f seconds."%(time.time() - t))
 		# ffmpeg convert avi to mp4
 		# subprocess.call(["ffmpeg", "-y", "-i", os.path.join(pyaviPath,'video_out.avi'), os.path.join(pyaviPath,'video_out.mp4')])
-		return faces, os.path.join(pyaviPath,'video_out.mp4')
+		return interpolated_faces, os.path.join(pyaviPath,'video_out.mp4')
 	
 	return faces
 
