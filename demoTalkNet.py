@@ -298,11 +298,10 @@ def main(s, DET, video_path, return_visualization = False):
 	os.makedirs(pycropPath, exist_ok = True) # Save the detected face clips (audio+video) in this process
 
 	video_cv2 = cv2.VideoCapture(video_path)
-	video_fps = video_cv2.get(cv2.CAP_PROP_FPS)
+	video_num_frames = int(video_cv2.get(cv2.CAP_PROP_FRAME_COUNT))
+	if video_num_frames == 0 or math.isnan(video_num_frames):
+		raise ValueError("Video has no frames or is corrupted.")
 	video_cv2.release()
-	if video_fps == 0 or math.isnan(video_fps):
-		video_fps = 25
-	video_fps = int(video_fps)
 
 	# Extract video
 	print("Extracting video...")
@@ -396,15 +395,17 @@ def main(s, DET, video_path, return_visualization = False):
 			y2 = int(track['proc_track']['y'][fidx] + track['proc_track']['s'][fidx] / 2)
 			faces[frame]['faces'].append({'track_id': tidx, 'raw_score': float(s), 'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'speaking': bool(s >= 0)})
 
-	video_length_seconds = len(faces) / 25
-	target_num_frames = video_length_seconds * video_fps
+	target_num_frames = video_num_frames
+	print(f"Interpolating faces from {len(faces)} frames to {target_num_frames} frames...")
 
-	ratio = video_fps / 25
+	ratio = target_num_frames / len(faces)
 	interpolated_faces = []
 	if ratio != 1:
-		interpolated_faces = [{'frame_number': i, 'faces': []} for i in range(int(target_num_frames))]
 		for i in range(int(target_num_frames)):
-			interpolated_faces[i]['faces'] = faces[int(i / ratio)]['faces']
+			interpolated_faces.append({
+				"frame_number": i,
+				"faces": faces[int(i / ratio)]["faces"]
+            })
 	else:
 		interpolated_faces = faces
 
@@ -420,7 +421,7 @@ def main(s, DET, video_path, return_visualization = False):
 		# subprocess.call(["ffmpeg", "-y", "-i", os.path.join(pyaviPath,'video_out.avi'), os.path.join(pyaviPath,'video_out.mp4')])
 		return interpolated_faces, os.path.join(pyaviPath,'video_out.mp4')
 	
-	return faces
+	return interpolated_faces
 
 if __name__ == '__main__':
 	s, DET = setup()
