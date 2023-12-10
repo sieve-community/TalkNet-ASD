@@ -53,8 +53,6 @@ class TalkNetASD:
         :return: if return_visualization is True, the first element of the tuple is the output of the model, and the second element is the visualization of the video. Otherwise, the first element is the output of the model.
         """
         from demoTalkNet import main
-        # import subprocess
-        # subprocess.run(["python", "demoTalkNet.py", "--videoName", video.path.split(".")[0]])
         def transform_out(out):
             outputs = []
             for o in out:

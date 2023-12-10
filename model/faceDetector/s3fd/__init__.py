@@ -8,8 +8,7 @@ from .box_utils import nms_
 
 PATH_WEIGHT = 'model/faceDetector/s3fd/sfd_face.pth'
 if os.path.isfile(PATH_WEIGHT) == False:
-    Link = "1KafnHz7ccT-3IyddBsL5yi2xGtxAKypt"
-    cmd = "gdown --id %s -O %s"%(Link, PATH_WEIGHT)
+    cmd = "wget -O %s https://storage.googleapis.com/mango-public-models/sfd_face.pth"%(PATH_WEIGHT)
     subprocess.call(cmd, shell=True, stdout=None)
 img_mean = np.array([104., 117., 123.])[:, np.newaxis, np.newaxis].astype('float32')
 
