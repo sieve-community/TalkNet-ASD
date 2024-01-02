@@ -297,11 +297,17 @@ def main(s, DET, video_path, return_visualization = False):
 	os.makedirs(pyworkPath, exist_ok = True) # Save the results in this process by the pckl method
 	os.makedirs(pycropPath, exist_ok = True) # Save the detected face clips (audio+video) in this process
 
-	video_cv2 = cv2.VideoCapture(video_path)
-	video_num_frames = int(video_cv2.get(cv2.CAP_PROP_FRAME_COUNT))
+	command = ("ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 %s" % video_path)
+	video_num_frames = float(subprocess.check_output(command, shell=True))
 	if video_num_frames == 0 or math.isnan(video_num_frames):
 		raise ValueError("Video has no frames or is corrupted.")
-	video_cv2.release()
+	
+	# get fps
+	command = ("ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 %s" % video_path)
+	fps_output = subprocess.check_output(command, shell=True).decode('utf-8').strip()
+	fps = float(fps_output.split('/')[0]) / float(fps_output.split('/')[1]) if '/' in fps_output else float(fps_output)
+	if fps == 0 or math.isnan(fps):
+		raise ValueError("Video has no frames or is corrupted.")
 
 	# Extract video
 	print("Extracting video...")
@@ -384,30 +390,78 @@ def main(s, DET, video_path, return_visualization = False):
 	flist = glob.glob(os.path.join(pyframesPath, '*.jpg'))
 	flist.sort()
 	faces = [{'frame_number': i, 'faces': []} for i in range(len(flist))]
+
+	def get_scene_by_frame_number(frame_number):
+		for scene_data in scene:
+			if scene_data[0].frame_num <= frame_number and scene_data[1].frame_num > frame_number:
+				return scene_data
+		return None
+	
+	faces_by_scene = {}
 	for tidx, track in enumerate(vidTracks):
 		score = scores[tidx]
 		for fidx, frame in enumerate(track['track']['frame'].tolist()):
 			s = score[max(fidx - 2, 0): min(fidx + 3, len(score) - 1)] # average smoothing
 			s = numpy.mean(s)
-			x1 = int(track['proc_track']['x'][fidx] - track['proc_track']['s'][fidx] / 2)
-			y1 = int(track['proc_track']['y'][fidx] - track['proc_track']['s'][fidx] / 2)
-			x2 = int(track['proc_track']['x'][fidx] + track['proc_track']['s'][fidx] / 2)
-			y2 = int(track['proc_track']['y'][fidx] + track['proc_track']['s'][fidx] / 2)
+			x1 = int(track['proc_track']['x'][fidx] - track['proc_track']['s'][fidx])
+			y1 = int(track['proc_track']['y'][fidx] - track['proc_track']['s'][fidx])
+			x2 = int(track['proc_track']['x'][fidx] + track['proc_track']['s'][fidx])
+			y2 = int(track['proc_track']['y'][fidx] + track['proc_track']['s'][fidx])
 			faces[frame]['faces'].append({'track_id': tidx, 'raw_score': float(s), 'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'speaking': bool(s >= 0)})
+			scene_data = get_scene_by_frame_number(frame)
+			if scene_data is not None:
+				scene_num = scene_data[0].frame_num
+				if scene_num not in faces_by_scene:
+					faces_by_scene[scene_num] = {}
+				# for each scene, keep a list of faces organized by frame number
+				if frame not in faces_by_scene[scene_num]:
+					faces_by_scene[scene_num][frame] = []
+				faces_by_scene[scene_num][frame].append({'track_id': tidx, 'raw_score': float(s), 'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'speaking': bool(s >= 0)})
+
+			
 
 	target_num_frames = video_num_frames
 	print(f"Interpolating faces from {len(faces)} frames to {target_num_frames} frames...")
 
-	ratio = target_num_frames / len(faces)
 	interpolated_faces = []
-	if ratio != 1:
-		for i in range(int(target_num_frames)):
-			interpolated_faces.append({
-				"frame_number": i,
-				"faces": faces[int(i / ratio)]["faces"]
-            })
-	else:
-		interpolated_faces = faces
+
+	if scene[-1][1].frame_num != len(faces) - 1:
+		# create a scene for the segment up to the end of the video
+		scene.append((scene[-1][1], FrameTimecode(timecode=len(faces), fps=25)))
+	for scene_data in scene:
+		scene_num = scene_data[0].frame_num
+		print("Processing scene...")
+		num_frames = scene_data[1].frame_num - scene_data[0].frame_num
+		start_frame = scene_data[0].frame_num
+		target_start_frame = int(start_frame * (fps / 25))
+		target_num_frames = int(num_frames * (fps / 25))
+
+		print(f"modified scene from frame {scene_data[0].frame_num}-{scene_data[1].frame_num} ({num_frames} frames)")
+		print(f"original scene from frame {target_start_frame}-{target_start_frame + target_num_frames} ({num_frames} frames)")
+
+		if scene_num not in faces_by_scene:
+			for i in range(target_start_frame, target_start_frame + target_num_frames):
+				interpolated_faces.append({
+					'frame_number': i,
+					'faces': []
+				})
+			continue
+
+		frames_in_scene = faces_by_scene[scene_num]
+		
+		# interpolate the faces in this scene
+		interpolated_frames = []
+		for i in range(target_start_frame, target_start_frame + target_num_frames):
+			frame_num = int(i * (num_frames / target_num_frames))
+			# find the closest frame in the scene
+			closest_frame = min(frames_in_scene.keys(), key=lambda x:abs(x-frame_num))
+			interpolated_frames.append({
+				'frame_number': frame_num,
+				'faces': frames_in_scene[closest_frame]
+			})
+		interpolated_faces.extend(interpolated_frames)
+			
+	faces = interpolated_faces
 
 
 	
