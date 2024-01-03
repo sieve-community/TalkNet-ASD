@@ -401,7 +401,7 @@ def main(s, DET, video_path, return_visualization = False):
 	for tidx, track in enumerate(vidTracks):
 		score = scores[tidx]
 		for fidx, frame in enumerate(track['track']['frame'].tolist()):
-			s = score[max(fidx - 2, 0): min(fidx + 3, len(score) - 1)] # average smoothing
+			s = score[max(fidx - 10, 0): min(fidx + 10, len(score) - 1)] # average smoothing
 			s = numpy.mean(s)
 			x1 = int(track['proc_track']['x'][fidx] - track['proc_track']['s'][fidx])
 			y1 = int(track['proc_track']['y'][fidx] - track['proc_track']['s'][fidx])
@@ -428,6 +428,10 @@ def main(s, DET, video_path, return_visualization = False):
 	if scene[-1][1].frame_num != len(faces) - 1:
 		# create a scene for the segment up to the end of the video
 		scene.append((scene[-1][1], FrameTimecode(timecode=len(faces), fps=25)))
+	
+	if int(scene[-1][1].frame_num * (fps / 25)) < target_num_frames:
+		# create a scene for the segment up to the end of the video
+		scene.append((scene[-1][1], FrameTimecode(timecode=int(target_num_frames / (fps / 25)), fps=25)))
 	for scene_data in scene:
 		scene_num = scene_data[0].frame_num
 		print("Processing scene...")
