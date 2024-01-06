@@ -297,13 +297,13 @@ def main(s, DET, video_path, return_visualization = False):
 	os.makedirs(pyworkPath, exist_ok = True) # Save the results in this process by the pckl method
 	os.makedirs(pycropPath, exist_ok = True) # Save the detected face clips (audio+video) in this process
 
-	command = ("ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 %s" % video_path)
+	command = ("ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 '%s'" % video_path)
 	video_num_frames = float(subprocess.check_output(command, shell=True))
 	if video_num_frames == 0 or math.isnan(video_num_frames):
 		raise ValueError("Video has no frames or is corrupted.")
 	
 	# get fps
-	command = ("ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 %s" % video_path)
+	command = ("ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 '%s'" % video_path)
 	fps_output = subprocess.check_output(command, shell=True).decode('utf-8').strip()
 	fps = float(fps_output.split('/')[0]) / float(fps_output.split('/')[1]) if '/' in fps_output else float(fps_output)
 	if fps == 0 or math.isnan(fps):
@@ -326,7 +326,7 @@ def main(s, DET, video_path, return_visualization = False):
 	# Extract audio
 	print("Extracting audio...")
 	t = time.time()
-	command = ("ffmpeg -y -i %s -qscale:a 0 -ac 1 -vn -threads %d -ar 16000 %s -loglevel panic" % \
+	command = ("ffmpeg -y -i '%s' -qscale:a 0 -ac 1 -vn -threads %d -ar 16000 %s -loglevel panic" % \
 		(videoFilePath, data_loader_thread, audioFilePath))
 	subprocess.call(command, shell=True, stdout=None)
 	print("Audio extracted in %.3f seconds."%(time.time() - t))
@@ -335,7 +335,7 @@ def main(s, DET, video_path, return_visualization = False):
 	# Extract the video frames
 	print("Extracting video frames...")
 	t = time.time()
-	command = ("ffmpeg -y -i %s -qscale:v 2 -threads %d -f image2 %s -loglevel panic" % \
+	command = ("ffmpeg -y -i '%s' -qscale:v 2 -threads %d -f image2 %s -loglevel panic" % \
 		(videoFilePath, data_loader_thread, os.path.join(pyframesPath, '%06d.jpg'))) 
 	subprocess.call(command, shell=True, stdout=None)
 	print("Video frames extracted in %.3f seconds."%(time.time() - t))
